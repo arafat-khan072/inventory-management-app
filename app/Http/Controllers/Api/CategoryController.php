@@ -25,8 +25,8 @@ class CategoryController extends Controller
 
         $data =  Category::orderBy('created_at', 'DESC')
                     ->filter(Request::only('search'))
-                    ->get()
-                    ->transform(function ($item, $index) {
+                    ->paginate(10)
+                    ->through(function ($item, $index) {
                         return [
                             'id'     => $item->id,
                             'sl'     => $index + 1,
