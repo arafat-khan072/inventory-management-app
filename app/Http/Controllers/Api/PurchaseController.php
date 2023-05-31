@@ -7,6 +7,7 @@ use App\Models\Product;
 use Carbon\Carbon;
 use App\Models\Purchase;
 use App\Models\Supplier;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\Storage;
@@ -76,12 +77,12 @@ class PurchaseController extends Controller
             'purchase_date'               => ['required'],
 
         ]);
+
         $total = 0;
         foreach(Request::get('productsRow') as $pr){
-            $product = Product::find($pr['product_id'])->first();
+            $product = DB::table('products')->where('id',$pr['product_id'])->first();
             if($product->stock_qty > $pr['product_qty']){
-                return  $pr['product_qty'];
-                $product->update([
+                DB::table('products')->where('id',$pr['product_id'])->update([
                     'stock_qty' => $product->stock_qty - $pr['product_qty']
                 ]);
                 $total = $total + $pr['product_total'];
@@ -110,11 +111,10 @@ class PurchaseController extends Controller
                 'id'            => $item->id,
                 'invoice_no'    => $item->invoice_no,
                 'supplier'      => $item->supplier->id ?? '',
-                'product'       => $item->product->id ?? '',
-                'product_qty'   => $item->product_qty,
-                'product_price' => $item->single_product_price,
+                'productsRow'   => json_decode($item->product_list) ?? '',
                 'total_price'   => $item->total_price,
                 'purchase_date' => $item->purchase_date,
+                'note'          => $item->note,
             ],
             'modelName'        => $this->modelName,
             'modelNamePlural'  => $this->modelNamePlural,
@@ -128,22 +128,34 @@ class PurchaseController extends Controller
     public function update(Purchase $item)
     {
         Request::validate([
-            'supplier'      => ['nullable', Rule::exists('suppliers', 'id')],
-            'product'       => ['nullable', Rule::exists('products', 'id')],
-            'product_qty'   => ['nullable'],
-            'product_price' => ['nullable'],
-            'total_price'   => ['nullable'],
-            'purchase_date' => ['nullable'],
+            'invoice_no'                  => ['nullable'],
+            'supplier'                    => ['nullable', Rule::exists('suppliers', 'id')],
+            'productsRow.*.product_name'  => ['nullable'],
+            'productsRow.*.product_stock' => ['nullable'],
+            'productsRow.*.product_qty'   => ['nullable'],
+            'productsRow.*.product_price' => ['nullable'],
+            'productsRow.*.product_total' => ['nullable'],
+            'purchase_date'               => ['nullable'],
         ]);
 
-        $total = Request::get('product_qty') * Request::get('product_price');
+        $total = 0;
+        foreach(Request::get('productsRow') as $pr){
+            $product = DB::table('products')->where('id',$pr['product_id'])->first();
+            if($product->stock_qty > $pr['product_qty']){
+                DB::table('products')->where('id',$pr['product_id'])->update([
+                    'stock_qty' => $product->stock_qty - $pr['product_qty']
+                ]);
+                $total = $total + $pr['product_total'];
+            }
+        }
+        
         $item->update([
+            'invoice_no'           => Request::get('invoice_no'),
             'supplier_id'          => Request::get('supplier'),
-            'product_id'           => Request::get('product'),
-            'product_qty'          => Request::get('product_qty'),
-            'single_product_price' => Request::get('product_price'),
+            'product_list'         => json_encode(Request::get('productsRow')),
             'total_price'          => $total,
             'purchase_date'        => Request::get('purchase_date'),
+            'note'                 => Request::get('note'),
         ]);
 
         return response()->json([
