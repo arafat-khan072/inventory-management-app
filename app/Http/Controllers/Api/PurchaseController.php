@@ -35,9 +35,7 @@ class PurchaseController extends Controller
                             'sl'            => $index + 1,
                             'invoice_no'    => $item->invoice_no,
                             'supplier'      => $item->supplier->name,
-                            'product'       => $item->product->name,
-                            'product_qty'   => $item->product_qty,
-                            'product_price' => $item->single_product_price,
+                            'products'      => json_decode($item->product_list),
                             'total_price'   => $item->total_price,
                             'purchase_date' => Carbon::createFromFormat('Y-m-d H:i:s', $item->purchase_date)->format('d/m/Y')
                         ];
@@ -68,24 +66,35 @@ class PurchaseController extends Controller
     public function store()
     {
         Request::validate([
-            'supplier'      => ['required', Rule::exists('suppliers', 'id')],
-            'product'       => ['required', Rule::exists('products', 'id')],
-            'product_qty'   => ['required'],
-            'product_price' => ['required'],
-            'purchase_date' => ['required'],
+            'invoice_no'                  => ['required'],
+            'supplier'                    => ['required', Rule::exists('suppliers', 'id')],
+            'productsRow.*.product_name'  => ['required'],
+            'productsRow.*.product_stock' => ['required'],
+            'productsRow.*.product_qty'   => ['required'],
+            'productsRow.*.product_price' => ['required'],
+            'productsRow.*.product_total' => ['required'],
+            'purchase_date'               => ['required'],
 
         ]);
-
-        $invoice_no = rand(100000,999999);
-        $total = Request::get('product_qty') * Request::get('product_price');
+        $total = 0;
+        foreach(Request::get('productsRow') as $pr){
+            $product = Product::find($pr['product_id'])->first();
+            if($product->stock_qty > $pr['product_qty']){
+                return  $pr['product_qty'];
+                $product->update([
+                    'stock_qty' => $product->stock_qty - $pr['product_qty']
+                ]);
+                $total = $total + $pr['product_total'];
+            }
+        }
+        
         $item = $this->model->create([
-            'invoice_no'           => $invoice_no,
+            'invoice_no'           => Request::get('invoice_no'),
             'supplier_id'          => Request::get('supplier'),
-            'product_id'           => Request::get('product'),
-            'product_qty'          => Request::get('product_qty'),
-            'single_product_price' => Request::get('product_price'),
+            'product_list'         => json_encode(Request::get('productsRow')),
             'total_price'          => $total,
             'purchase_date'        => Request::get('purchase_date'),
+            'note'                 => Request::get('note'),
         ]);
 
         return response()->json([
@@ -149,6 +158,13 @@ class PurchaseController extends Controller
 
         return response()->json([
                             'message'   => 'Purchase item deleted successfully'
+                        ], 200);
+    }
+
+    public function productList() {
+        $data = Product::select('id','code','name','stock_qty','price')->where('status',1)->get();
+        return response()->json([
+                            'data' => $data,
                         ], 200);
     }
 

@@ -18,12 +18,10 @@ class CreatePurchasesTable extends Migration
             $table->string('invoice_no');
             $table->unsignedBigInteger('supplier_id');
             $table->foreign('supplier_id')->references('id')->on('suppliers');
-            $table->unsignedBigInteger('product_id');
-            $table->foreign('product_id')->references('id')->on('products');
-            $table->integer('product_qty');
-            $table->decimal('single_product_price',10, 2);
+            $table->json('product_list');
             $table->decimal('total_price',10, 2);
-            $table->dateTime('purchase_date')->nullable();
+            $table->dateTime('purchase_date');
+            $table->string('note')->nullable();
             $table->timestamps();
         });
     }

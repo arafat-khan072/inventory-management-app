@@ -60,5 +60,6 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
     Route::get('purchases/{item}/edit', [PurchaseController::class, 'edit'])->name('purchases.edit');
     Route::put('purchases/{item}', [PurchaseController::class, 'update'])->name('purchases.update');
     Route::delete('purchases/{item}', [PurchaseController::class, 'destroy'])->name('purchases.destroy');
+    Route::get('product/list', [PurchaseController::class, 'productList'])->name('product.list');
 
 });
